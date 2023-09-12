@@ -1,0 +1,43 @@
+```{r}
+library(dplyr)
+library(TTR)
+library(forecast)
+library(lmtest) 
+library(orcutt) 
+library(HoRM) 
+library(R.utils)
+```
+
+#Data yang digunakan adalah data harga saham repsol pada 100 hari terakhir yaitu pada bulan maret 2022 sampai juni 2022. kolom yang digunakan antara lain, V2 adalah harga buka, V3 harga tertinggi di hari tersebut, V5 harga penutupan.
+```{r}
+l2keep <- 100
+nL <- countLines("/Users/sharedvis/Downloads/RepsolStockData20Years.csv")
+df <- read.csv("/Users/sharedvis/Downloads/RepsolStockData20Years.csv", header=FALSE, skip=nL-l2keep)
+print(df)
+```
+#Pertama dibuat scatter plot untuk melihat korelasi antar peubah.
+```{r}
+plot(df, pch = 20, col = "blue")
+```
+#Dapat dilihat dari scatter plot terdapat korelasi yang sangat kuat satu sama lain antara V2, V3 dan V5
+
+#Selanjutnya dibuat model regresi linear berganda denga harga tertinggi sebagai peubah dependen dan harga buka dan tutup sebagai peubah independen
+```{r}
+model <- lm(df$V3~df$V2+df$V5)
+summary(model)
+print(model)
+```
+#Didapatkan model regresi linear  Y= 0.1370 + 0.6205X1 + 0.3857X2
+
+#Selanjutnya dilakukan uji kolmogorov smirnov
+```{r}
+sisaan<- residuals(model)
+ks.test(sisaan, "pnorm", mean=mean(sisaan), sd=sd(sisaan))
+```
+#didapatkan p value = 0.472 maka sisaan menyebar normal
+
+#selanjutnya dilakukan uji durbin watson
+```{r}
+dwtest(model)
+```
+#didapatkan p-value = 0.8225 maka tidak terdapat autokorelasi
