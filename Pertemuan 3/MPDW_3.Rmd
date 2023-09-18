@@ -1,0 +1,71 @@
+```{r}
+library(dLagM)
+library(dynlm)
+library(MLmetrics)
+library(lmtest)
+library(car)
+library(R.utils)
+```
+
+## Data yang digunakan adalah harga saham repsol pada 100 hari terakhir. Peubah bebas adalah harga pembukaan saham (V2) dan peubah terikat adalah harga penjualan tertinggi (V3).
+```{r}
+l2keep <- 100
+nL <- countLines("/Users/sharedvis/Downloads/RepsolStockData20Years.csv")
+data <- read.csv("/Users/sharedvis/Downloads/RepsolStockData20Years.csv", header=FALSE, skip=nL-l2keep)
+```
+
+## Dataset ini kemudian dibagi menjadi train dan test dengan proporsi 80:20.
+```{r}
+train<-data[1:80,]
+test<-data[81:100,]
+```
+
+```{r}
+train.ts<-ts(train)
+test.ts<-ts(test)
+data.ts<-ts(data)
+```
+
+## Model yang pertama dicoba adalah dengan metode koyck
+```{r}
+model.koyck <- koyckDlm(x = train$V2, y = train$V3)
+summary(model.koyck)
+AIC(model.koyck)
+BIC(model.koyck)
+```
+## didapatkan nilai AIC dan BIC sebesar -94.04 dan -84.56
+
+## selanjutnya akan diperiksa akurasi dari model koyck
+```{r}
+fore.koyck <- forecast(model = model.koyck, x=test$V2, h=20)
+fore.koyck
+mape.koyck <- MAPE(fore.koyck$forecasts, test$V3)
+GoF(model.koyck)
+```
+## didapatkan nilai MAPE yang sangat kecil yaitu 0.008154
+
+## sebagai pembanding maka akan dilakukan model lag
+## pertama menggunakan DLMauto maka akan dicari nilai q paling optimal
+```{r}
+finiteDLMauto(formula = V3 ~ V2,
+              data = data.frame(train), q.min = 1, q.max = 20,
+              model.type = "dlm", error.type = "AIC", trace = FALSE)
+```
+## didapatkan nilai q yang paling optimal yaitu 1
+## selanjutnya dibuat model lag menggunakan q = 1
+```{r}
+model.dlm2 <- dlm(x = train$V2,y = train$V3 , q = 1)
+summary(model.dlm2)
+AIC(model.dlm2)
+BIC(model.dlm2)
+```
+## didapatkan nilai AIC dan BIC -94.65 dan -85.17
+## nilai tersebut sedikit lebih baik daripada metode koyck
+```{r}
+fore.dlm2 <- forecast(model = model.dlm2, x=test$V2, h=20)
+mape.dlm2<- MAPE(fore.dlm2$forecasts, test$V3)
+#akurasi data training
+GoF(model.dlm2)
+```
+## menggunakan metode lag didapatkan nilai MAPE yang sedikit lebih kecil dari koyck yaitu 0.008153
+## maka dapat disimpulkan metode lag sedikit lebih baik daripada metode koyck walaupun metode koyck sebenarnya sudah cukup baik
