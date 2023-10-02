@@ -1,0 +1,182 @@
+
+```{r}
+library(ggplot2)
+library(tsibble)
+library(tseries)
+library(MASS)
+```
+
+```{r}
+stas <- read_excel("/Users/sharedvis/Downloads/Total Penumpang Pelayaran dalam Negeri di Pelabuhan Utama.xlsx")
+```
+
+### Plot *Time Series*
+
+```{r}
+plot_stas <- stas |> as_tsibble() |> 
+  ggplot(aes(x = index, y = value)) + geom_line() + theme_bw() +
+  xlab("Obs") + ylab("Nilai")
+plot_stas
+mean(stas)
+```
+
+
+### Plot ACF
+
+```{r}
+acf(stas)
+```
+
+### Uji ADF
+
+```{r}
+tseries::adf.test(stas)
+```
+
+$H_0$ : Data tidak stasioner dalam rataan
+
+$H_1$ : Data stasioner dalam rataan
+
+
+### Plot Box-Cox
+
+```{r}
+index <- seq(1:200)
+bc = boxcox(stas~index, lambda = seq(0,4,by=0.01))
+#Nilai Rounded Lambda
+lambda <- bc$x[which.max(bc$y)]
+lambda
+#SK
+bc$x[bc$y > max(bc$y) - 1/2 * qchisq(.95,1)]
+```
+
+
+### Partisi Data
+
+#### Bagian 1
+
+```{r}
+dt_stas1 <- stas[1:67] |> ts()
+mean(dt_stas1)
+var(dt_stas1)
+```
+
+#### Plot Time Series
+
+```{r}
+dt_stas1 |> as_tsibble() |> 
+  ggplot(aes(x = index, y = value)) +
+  geom_line() + theme_bw() +
+  xlab("Obs") + ylab("Nilai")
+```
+
+#### Plot ACF
+
+```{r}
+acf(dt_stas1)
+```
+
+#### Uji ADF
+
+```{r}
+tseries::adf.test(dt_stas1)
+```
+
+#### Plot Boxcox
+
+```{r}
+index <- seq(1:67)
+bc = boxcox(dt_stas1~index, lambda = seq(-2,6,by=1))
+#Nilai Rounded Lambda
+lambda <- bc$x[which.max(bc$y)]
+lambda
+#SK
+bc$x[bc$y > max(bc$y) - 1/2 * qchisq(.95,1)]
+```
+
+#### Bagian 2
+
+```{r}
+dt_stas2 <- stas[1:134] |> ts()
+mean(dt_stas2)
+var(dt_stas2)
+```
+
+#### Plot Time Series
+
+```{r}
+dt_stas2 |> as_tsibble() |> 
+  ggplot(aes(x = index, y = value)) +
+  geom_line() + theme_bw() +
+  xlab("Obs") + ylab("Nilai")
+```
+
+#### Plot ACF
+
+```{r}
+acf(dt_stas2)
+```
+
+#### Uji ADF
+
+```{r}
+adf.test(dt_stas2)
+```
+
+#### Plot Boxcox
+
+```{r}
+index <- seq(1:134)
+bc = boxcox(dt_stas2~index, lambda = seq(0,6,by=1))
+#Nilai Rounded Lambda
+lambda <- bc$x[which.max(bc$y)]
+lambda
+#SK
+bc$x[bc$y > max(bc$y) - 1/2 * qchisq(.95,1)]
+```
+
+```{r}
+notrend <- 1 + cumsum(rep(0, 100)) + rnorm(100) |> ts()
+postrend <- 1 + cumsum(rep(0.2, 100)) + rnorm(100) |> ts() 
+negtrend <- 1 + cumsum(rep(-0.2, 100)) + rnorm(100) |> ts()
+```
+
+
+```{r}
+plot_notrend <- notrend |> as_tsibble() |> 
+  ggplot(aes(x = index, y = value)) + geom_line() + theme_bw() +
+  xlab("Obs") + ylab("Nilai") + ggtitle("First Difference = 0")
+plot_postrend <- postrend |> as_tsibble() |> 
+  ggplot(aes(x = index, y = value)) + geom_line() + theme_bw() +
+  xlab("Obs") + ylab("Nilai") + ggtitle("First Difference = 0.2")
+plot_negtrend <- negtrend |> as_tsibble() |> 
+  ggplot(aes(x = index, y = value)) + geom_line() + theme_bw() +
+  xlab("Obs") + ylab("Nilai") + ggtitle("First Difference = -0.2")
+
+ggpubr::ggarrange(plot_notrend, plot_postrend, plot_negtrend, nrow = 3)
+```
+
+
+```{r}
+startSpot <- 3
+dt <- {arima.sim(n=100, list(order=c(1,0,1),ar=c(.2), ma=.2), sd=2) + 1.5}  |> ts()
+yt <- startSpot + cumsum(dt) |> ts()
+
+dt_alt <- arima.sim(n=100, list(order=c(1,0,1),ar=c(.2), ma=.2), mean = 1.5, sd=2)  |> ts()
+yt_alt <- startSpot + cumsum(dt_alt) |> ts()
+
+plot_dt <- dt |> as_tsibble() |> 
+  ggplot(aes(x = index, y = value)) + geom_line() + theme_bw() +
+  xlab("Obs") + ylab("Nilai") + ggtitle("Penambahan konstanta 1.5 di selisih")
+plot_yt <- yt |> as_tsibble() |> 
+  ggplot(aes(x = index, y = value)) + geom_line() + theme_bw() +
+  xlab("Obs") + ylab("Nilai")
+plot_dt_alt <- dt_alt |> as_tsibble() |> 
+  ggplot(aes(x = index, y = value)) + geom_line() + theme_bw() +
+  xlab("Obs") + ylab("Nilai") + ggtitle("Mean 1.5 di parameter arima.sim")
+plot_yt_alt <- yt_alt |> as_tsibble() |> 
+  ggplot(aes(x = index, y = value)) + geom_line() + theme_bw() +
+  xlab("Obs") + ylab("Nilai")
+
+ggpubr::ggarrange(plot_dt, plot_yt, plot_dt_alt, plot_yt_alt)
+```
