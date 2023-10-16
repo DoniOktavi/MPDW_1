@@ -1,0 +1,135 @@
+# Memuat package
+```{r}
+library("forecast")
+library("graphics")
+library("TTR")
+library("TSA")
+library(dplyr)
+library(forecast)
+library(lmtest) 
+library(orcutt) 
+library(HoRM) 
+library(corrplot)
+library(dLagM)
+library(dynlm)
+library(MLmetrics)
+library(ggplot2)
+library(tsibble)
+library(tseries)
+library(MASS)
+library(aTSA)
+library(readxl)
+```
+
+# Memuat Data
+### Data yang telah dimuat kemudian akan ditambahkan dengan 138
+```{r}
+df <- read_excel("Total Penumpang Pelayaran dalam Negeri di Pelabuhan Utama.xlsx")
+df$Index <- 1:nrow(df)
+df
+```
+# Mengubah data menjadi format deret waktu
+```{r}
+df.ts <- ts(df$jumlah)
+```
+
+# Membagi data menjadi data latih (80%) dan data uji (20%) dan jadikan time series
+
+```{r}
+df.latih <- df[1:72,1]
+df.uji <- df[73:109,1]
+df.latih.ts <- ts(df.latih)
+df.uji.ts <- ts(df.uji)
+```
+# Membuat plot time series
+### Data Utuh
+```{r}
+ts.plot(df.ts, col="green",main="Plot semua data", type="o",xlab="Time",ylab="Data")
+points(df.ts)
+```
+### Data Latih
+```{r}
+ts.plot(df.latih.ts, col="blue",main="Plot data latih", type="o",xlab="Time",ylab="Data")
+points(df.latih.ts)
+```
+### Data uji
+```{r}
+ts.plot(df.uji.ts, col="red",main="Plot data uji", type="o",xlab="Time",ylab="Data")
+points(df.uji.ts)
+```
+
+# Plot ACF
+```{r}
+acf(df.latih.ts)
+```
+
+# Uji dickey fuller
+uji ini dilakukan untuk mengetahui kestasioneran dari data
+```{r}
+tseries::adf.test(df.latih.ts)
+```
+didapatkan nilai p-value yaitu 0.378 maka tak tolak Ho artinya data tidak stasioner dalam rataan
+# Differencing
+Melakukan differencing untuk menangani kestasioneran
+```{r}
+train.diff<-diff(df.latih.ts,differences = 1) 
+plot.ts(train.diff, lty=1)
+```
+Dari grafik tersebut terlihat data stasioner. dilakukan uji dickey fuller untuk memastikan
+# Uji dickey fuller data hasil differencing
+```{r}
+tseries::adf.test(train.diff)
+```
+didapatkan p value 0.01 maka tolak Ho artinya data stasioner
+# Plot ACF data differencing
+```{r}
+acf(train.diff)
+```
+#Plot PACF data differencing
+```{r}
+pacf(train.diff)
+```
+#Plot EACF
+```{r}
+eacf(train.diff)
+```
+Mengacu pada plot EACF maka dapat dibuat 2 model tentatif yaitu ARIMA(0,1,1), dan ARIMA(1,1,1)
+#Pendugaan Parameter model tentatif
+### ARIMA(0,1,1)
+```{r}
+model1.da=Arima(train.diff, order=c(0,1,1),method="ML")
+summary(model1.da)
+lmtest::coeftest(model1.da) 
+```
+### ARIMA(1,1,1)
+```{r}
+model2.da=Arima(train.diff, order=c(1,1,1),method="ML")
+summary(model2.da)
+lmtest::coeftest(model2.da) 
+```
+
+
+### Nilai AIC Terbaik didapatkan oleh model ARIMA(0,1,1)
+#fORECASTING
+```{r}
+ramalan.da <- forecast::forecast(model1.da, h = 37) 
+ramalan.da
+data.ramalan.da <- ramalan.da$mean
+plot(ramalan.da)
+```
+```{r}
+pt_1 <- df.latih.ts #nilai akhir data latih
+hasil.forc.Diff <- data.ramalan.da
+hasil <- diffinv(hasil.forc.Diff, differences = 1) + pt_1
+#has.1 sama hasilnta dengan: cumsum(c(pt_1,hasil.forc.Diff))
+ts.plot(df.latih.ts,hasil)
+```
+```{r}
+perbandingan.da<-matrix(data=c(head(df.uji.ts, n=37), hasil[-1]),
+                     nrow = 37, ncol = 2)
+colnames(perbandingan.da)<-c("Aktual","Hasil Forecast")
+perbandingan.da
+accuracy(ts(hasil[-1]), head(df.uji.ts, n=37))
+```
+
+
